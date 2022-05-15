@@ -1,7 +1,9 @@
 Pipfile.lock
 .idea/
 .vscode/
+.ipynb_checkpoints/
 *pycache*/
 .*~
 *.csv
 *.pyc
+*.ipynb

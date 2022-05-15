@@ -34,8 +34,11 @@ class NetworkGenerator:
             )
         return self.cx, self.cy
 
-    def synthetic_network(self) -> tuple[ArrayLike, ArrayLike,List[int],List[int]]:
-        Mij = network_generator(self.rows, self.columns, self.block_number, self.cy, self.cx, self.xi, self.P, self.mu)
+    def synthetic_network(self) -> tuple[ArrayLike, ArrayLike,List[int],List[int]] |tuple[None]:
+        xi = self.xi
+        if not self.able_to_calc:
+            return (None,)*4
+        Mij = network_generator(self.rows, self.columns, self.block_number, self.cy, self.cx, xi, self.P, self.mu)
         Mrand = array(uniform(0, 1, size=(self.rows, self.columns)))
         labelRows = repeat(range(len(self.cy)),self.cy).tolist()
         labelCols = repeat(range(len(self.cx)),self.cx).tolist()
@@ -47,11 +50,13 @@ class NetworkGenerator:
 
     @property
     def xi(self) -> float:
+        self.able_to_calc = True
         if self.fixedConn == True:
             maxConn = sum([(x*y) for x,y in zip(self.cx,self.cy)])/(self.rows*self.columns)
             xi = xiFunConn(self.cy, self.cx, self.rows, self.columns, self.link_density)
             if maxConn < self.link_density:
                 warnings.warn(f"Desired connectance not possible for parameters combination. Max connectance {maxConn:.3f}")
+                self.able_to_calc = False
             else:
                 print(f"xi value for desired connectance {xi:.2f}") 
         else:
@@ -63,14 +68,20 @@ class NetworkGenerator:
         return "bipartite" if self.bipartite else "unipartite"
     
     def __post_init__(self) -> None:
+        self._call_get_block_size()
+
+    def _call_get_block_size(self):
         self.get_block_sizes()
         if self.fixedConn and self.link_density>1:
             raise ValueError("If parameter 'fixedConn' is True, then 'link_density' cannot be greater than 1")
     
-    def __call__(self, **kwargs) -> tuple[ArrayLike, ArrayLike, List[int], List[int]]:
-        for param in self.__annotations__.keys():
-            if param in kwargs:
+    def __call__(self, **kwargs) -> tuple[ArrayLike, ArrayLike, List[int], List[int]] | tuple[None]:
+        for param in kwargs:
+            if param in self.__annotations__.keys():
                 setattr(self, param, kwargs[param])
+        
+        if any(n in ["block_number", "rows","columns"] for n in kwargs):
+            self._call_get_block_size()
         
         self.P = round(self.P, 2)
         self.mu = round(self.mu, 2)
